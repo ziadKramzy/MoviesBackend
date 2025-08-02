@@ -41,7 +41,7 @@ fly deploy
 
 echo " Deployment completed!"
 echo " Your app should be available at: https://movies-app-backend.fly.dev"
-echo " Health check: https://movies-app-backend.fly.dev/health"
+
 
 # Optional: Open the app in browser
 read -p "Would you like to open the app in your browser? (y/n): " -n 1 -r

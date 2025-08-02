@@ -1,10 +1,10 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 import { signupSchema, signinSchema, SignupInput, SigninInput } from '../schemas/authSchema';
 
-export const signup = async (req: Request, res: Response) => {
+export const signup = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validatedData: SignupInput = signupSchema.parse(req.body);
     
@@ -59,11 +59,11 @@ export const signup = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    throw error;
+    next(error);
   }
 };
 
-export const signin = async (req: Request, res: Response) => {
+export const signin = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validatedData: SigninInput = signinSchema.parse(req.body);
     
@@ -109,11 +109,11 @@ export const signin = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    throw error;
+    next(error);
   }
 };
 
-export const getProfile = async (req: Request, res: Response) => {
+export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
@@ -142,6 +142,6 @@ export const getProfile = async (req: Request, res: Response) => {
       data: user
     });
   } catch (error) {
-    throw error;
+    next(error);
   }
 }; 
