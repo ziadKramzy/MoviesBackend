@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  movies    Movie[]
+
+  @@map("users")
+}
+
+model Movie {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // "Movie" or "TV Show"
+  director    String
+  budget      Float
+  location    String
+  duration    Int      // in minutes
+  year        Int
+  description String?
+  image       String?  // URL or path to movie poster image
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Foreign key to User
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("movies")
+} 
