@@ -1,20 +1,20 @@
-# Multi-stage build for production
-FROM node:18-alpine AS base
+# Use Node.js 18 Alpine as base image
+FROM node:18-alpine AS builder
 
-# Install dependencies only when needed
-FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk add --no-cache libc6-compat
+# Install build dependencies
+RUN apk add --no-cache libc6-compat python3 make g++
+
+# Set working directory
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
 
-# Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Install all dependencies including devDependencies
+RUN npm install && npm install -g typescript
+
+# Copy source code
 COPY . .
 
 # Generate Prisma client
@@ -23,37 +23,37 @@ RUN npx prisma generate
 # Build the application
 RUN npm run build
 
-# Production image, copy all the files and run the app
-FROM base AS runner
+# Production stage
+FROM node:18-alpine
+
+# Install runtime dependencies
+RUN apk add --no-cache libc6-compat openssl openssl-dev ca-certificates
+
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV PORT 5000
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Install only production dependencies
+RUN npm install --production
 
-# Copy the public folder
-COPY --from=builder /app/uploads ./uploads
+# Copy built files from builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=5000
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
+# Create uploads directory
+RUN mkdir -p /app/uploads
 
-COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-
-USER nextjs
-
+# Expose the port the app runs on
 EXPOSE 5000
 
-ENV PORT 5000
-ENV HOSTNAME "0.0.0.0"
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1
 
-# Start the application
-CMD ["npm", "start"] 
+# Start the application as root (default user in container)
+CMD ["node", "dist/index.js"]

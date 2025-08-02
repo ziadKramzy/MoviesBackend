@@ -14,27 +14,72 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // CORS configuration
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-frontend-domain.com'] 
-    : ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true,
-  exposedHeaders: ['Content-Disposition']
-};
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://movies-app-backend.fly.dev',
+  'http://localhost:5000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
+];
 
-// Apply CORS to all routes
-app.use(cors(corsOptions));
+// Apply CORS middleware
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (process.env.NODE_ENV === 'development' || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'X-XSRF-TOKEN',
+    'Accept',
+    'x-xsrf-token',
+    'x-requested-with'
+  ],
+  exposedHeaders: [
+    'Content-Disposition',
+    'Set-Cookie',
+    'XSRF-TOKEN',
+    'X-XSRF-TOKEN',
+    'x-xsrf-token'
+  ]
+}));
+
+// Handle preflight requests
+app.options('*', cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-XSRF-TOKEN', 'Accept']
+}));
 
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:", "http://localhost:5000", "https://localhost:5000"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'", "https:", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https://movies-app-backend.fly.dev", "http://localhost:5000", "https://localhost:5000"],
+      connectSrc: ["'self'", "https://movies-app-backend.fly.dev", "http://localhost:5000", "https://localhost:5000"],
+      fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
@@ -48,11 +93,11 @@ app.use(morgan('combined'));
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files with CORS headers
 app.use('/uploads', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', corsOptions.origin.join(','));
+  res.header('Access-Control-Allow-Origin', allowedOrigins.join(','));
   res.header('Access-Control-Allow-Credentials', 'true');
   next();
 }, express.static('uploads', {
