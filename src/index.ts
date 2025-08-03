@@ -19,6 +19,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://movies-app-backend.fly.dev',
   'https://movies-app-frontend.fly.dev',
+  'https://moviesfrontendapp.netlify.app',
   'http://localhost:5000',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000'
@@ -78,8 +79,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:", "https://movies-app-backend.fly.dev", "http://localhost:5000", "https://localhost:5000"],
-      connectSrc: ["'self'", "https://movies-app-backend.fly.dev", "http://localhost:5000", "https://localhost:5000"],
+      imgSrc: ["'self'", "data:", "blob:", "https://movies-app-backend.fly.dev", "https://moviesfrontendapp.netlify.app", "http://localhost:5000", "https://localhost:5000"],
+      connectSrc: ["'self'", "https://movies-app-backend.fly.dev", "https://moviesfrontendapp.netlify.app", "http://localhost:5000", "https://localhost:5000"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -98,12 +99,18 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files with CORS headers
 app.use('/uploads', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', allowedOrigins.join(','));
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin as string)) {
+    res.header('Access-Control-Allow-Origin', origin as string);
+  }
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   next();
 }, express.static('uploads', {
   setHeaders: (res) => {
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
   }
 }));
 
